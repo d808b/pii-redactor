@@ -421,7 +421,23 @@ test('D1: random 16-19 digit numbers are [BANK] ~= 10% (Luhn theory)', (t) => {
   assert.ok(rate > 0.075 && rate < 0.125, `expected ~1/10, got ${rate}`)
 })
 
-test('D2: random 18-digit numbers are almost never [ID]', (t) => {
+test('D2: random 18-digit numbers are almost never [ID] (strict check)', (t) => {
+  const saved = rand
+  rand = mulberry32(0x1d1d)
+  let hits = 0
+  const samples = 3000
+  try {
+    for (let index = 0; index < samples; index += 1) {
+      if (redactText(digits(18), { strictIdChecksum: true }).counts.id === 1) hits += 1
+    }
+  } finally {
+    rand = saved
+  }
+  t.diagnostic(`strict random 18-digit ID rate = ${hits}/${samples}; theory < 0.01% (date+province+check)`)
+  assert.ok(hits <= 1, `random 18-digit strings must not look like IDs (got ${hits})`)
+})
+
+test('D2b: fallback mode keeps random 18-digit false positives negligible', (t) => {
   const saved = rand
   rand = mulberry32(0x1d1d)
   let hits = 0
@@ -433,8 +449,9 @@ test('D2: random 18-digit numbers are almost never [ID]', (t) => {
   } finally {
     rand = saved
   }
-  t.diagnostic(`random 18-digit ID rate = ${hits}/${samples}; theory < 0.01% (date+province+check)`)
-  assert.ok(hits <= 1, `random 18-digit strings must not look like IDs (got ${hits})`)
+  const rate = hits / samples
+  t.diagnostic(`fallback random 18-digit ID rate = ${(rate * 100).toFixed(3)}% (${hits}/${samples}); theory ~0.035% (province 31% x year 3% x month 12% x day 31%)`)
+  assert.ok(rate < 0.002, `fallback false-positive rate must stay under 0.2% (got ${rate})`)
 })
 
 test('D3: random 11-digit numbers are [PHONE] ~= 7% (1 + 3-9 prefix theory)', (t) => {
@@ -454,25 +471,29 @@ test('D3: random 11-digit numbers are [PHONE] ~= 7% (1 + 3-9 prefix theory)', (t
   assert.ok(rate > 0.05 && rate < 0.09, `expected ~7%, got ${rate}`)
 })
 
-test('D4: 18-digit values with a plausible prefix/date are [ID] ~= 9% (checksum only)', (t) => {
+test('D4: plausible prefix/date values are [ID] ~100% with fallback, ~9% strict', (t) => {
   const saved = rand
   rand = mulberry32(0x5eed)
-  let hits = 0
+  let fallbackHits = 0
+  let strictHits = 0
   const samples = 3000
   try {
     // Valid province prefix and valid birth date, but an arbitrary last digit:
-    // only the ISO 7064 check character stands between this and [ID].
+    // the fallback accepts the shape, the strict check still demands ISO 7064.
     for (let index = 0; index < samples; index += 1) {
       const base = `110101${1980 + (index % 40)}${String(1 + (index % 12)).padStart(2, '0')}${String(1 + (index % 28)).padStart(2, '0')}${String(index % 1000).padStart(3, '0')}`
       const value = `${base}${Math.floor(rand() * 10)}`
-      if (redactText(value).counts.id === 1) hits += 1
+      if (redactText(value).counts.id === 1) fallbackHits += 1
+      if (redactText(value, { strictIdChecksum: true }).counts.id === 1) strictHits += 1
     }
   } finally {
     rand = saved
   }
-  const rate = hits / samples
-  t.diagnostic(`plausible 18-digit ID rate = ${(rate * 100).toFixed(2)}% (${hits}/${samples}); theory ~1/11 = 9.09%`)
-  assert.ok(rate > 0.06 && rate < 0.13, `expected ~1/11, got ${rate}`)
+  const fallbackRate = fallbackHits / samples
+  const strictRate = strictHits / samples
+  t.diagnostic(`plausible 18-digit ID rate: fallback ${(fallbackRate * 100).toFixed(2)}%, strict ${(strictRate * 100).toFixed(2)}% (${strictHits}/${samples}); strict theory ~1/11 = 9.09%`)
+  assert.ok(fallbackRate > 0.99, `fallback must catch the ID-shaped family (got ${fallbackRate})`)
+  assert.ok(strictRate > 0.06 && strictRate < 0.13, `strict expected ~1/11, got ${strictRate}`)
 })
 
 // ---------------------------------------------------------------------------

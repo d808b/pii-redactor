@@ -61,10 +61,15 @@ test('redacts an X-suffixed ID in both cases', () => {
   assert.equal(redactText(`A ${VALID_ID_X.toLowerCase()}`).text, 'A [ID]')
 })
 
-test('keeps an 18-digit number whose ID checksum fails', () => {
-  const wrong = `${VALID_ID.slice(0, 17)}${(Number(VALID_ID[17]) + 1) % 10}`
-  // Keep the assertion about ID classification: it must never become [ID].
-  assert.equal(redactText(wrong).text.includes('[ID]'), false)
+test('flags an ID-shaped value whose check character fails, unless strict mode is on', () => {
+  const digit = /\d/.test(VALID_ID[17]) ? Number(VALID_ID[17]) : 0
+  const wrong = `${VALID_ID.slice(0, 17)}${(digit + 1) % 10}`
+  assert.equal(redactText(wrong).text, '[ID]', 'default fallback must catch a mis-copied ID')
+  assert.equal(
+    redactText(wrong, { strictIdChecksum: true }).text.includes('[ID]'),
+    false,
+    'strict mode must keep demanding the check character',
+  )
 })
 
 test('rejects impossible birth dates and unknown address prefixes', () => {
@@ -192,4 +197,25 @@ test('redacts grouped mobiles and Luhn-valid grouped cards', () => {
 test('does not group a spaced date into a bank card', () => {
   assert.equal(redactText('日期 2026 11 05').text, '日期 2026 11 05')
   assert.equal(redactText('日期 2026-11-05').text, '日期 2026-11-05')
+})
+
+test('fallback still rejects impossible months and unknown address prefixes', () => {
+  const badMonth = '11010119901307447'
+  const badPrefix = '99010119900307447'
+  for (const base of [badMonth, badPrefix]) {
+    for (let digit = 0; digit <= 9; digit += 1) {
+      const value = `${base}${digit}`
+      assert.equal(redactText(value).text.includes('[ID]'), false, `must not flag ${value.length}-digit non-ID`)
+    }
+  }
+})
+
+test('fallback flags an ID-shaped value with a future birth date (documented widening)', () => {
+  // A real card can never carry a future birth date, so this shape is either
+  // forced or fabricated; the fallback treats it as an ID anyway.
+  const future = '11010120991231447'
+  const flagged = Array.from({ length: 10 }, (_, digit) => redactText(`${future}${digit}`).text)
+  assert.ok(flagged.some((text) => text === '[ID]'), 'at least one future-dated shape must be flagged')
+  const strict = Array.from({ length: 10 }, (_, digit) => redactText(`${future}${digit}`, { strictIdChecksum: true }).text)
+  assert.equal(strict.includes('[ID]'), false, 'strict mode must not flag future dates')
 })
