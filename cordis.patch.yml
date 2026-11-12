@@ -1,0 +1,20 @@
+# Bundle patch for @local/dsh-pii-redactor.
+#
+# `plugin_manager install_bundle` merges this row into the profile's
+# cordis.patch.yml. To tune the plugin, edit the `config:` block of that merged
+# row (see README "配置项"), not this file.
+- insert:
+    - id: pii-redactor
+      name: '@local/dsh-pii-redactor'
+      config:
+        enabled: true
+        redactIdCard: true
+        redactPhone: true
+        redactBankCard: true
+        allowLegacyId15: false
+        allowCountryCode: true
+        requireLuhn: true
+        minBankCardLength: 16
+        maxBankCardLength: 19
+        redactInjectedContext: false
+        failClosed: false

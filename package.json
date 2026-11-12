@@ -1,0 +1,25 @@
+{
+  "name": "@local/dsh-pii-redactor",
+  "version": "0.1.1",
+  "private": true,
+  "type": "module",
+  "description": "Redacts mainland-China ID card, mobile, and bank card numbers from user messages before they reach the model.",
+  "exports": {
+    ".": "./index.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "files": [
+    "index.js",
+    "lib/*.js",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "icon.svg",
+    "README.md"
+  ]
+}

@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "PII redactor",
+    "description": "Replaces mainland-China ID card, mobile, and bank card numbers in your messages with [ID], [PHONE], and [BANK] placeholders before they reach the model."
+  }
+}
