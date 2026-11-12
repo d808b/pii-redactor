@@ -444,7 +444,7 @@ test('D2b: fallback mode keeps random 18-digit false positives negligible', (t) 
   const samples = 3000
   try {
     for (let index = 0; index < samples; index += 1) {
-      if (redactText(digits(18)).counts.id === 1) hits += 1
+      if (redactText(digits(18), { strictIdChecksum: false }).counts.id === 1) hits += 1
     }
   } finally {
     rand = saved
@@ -483,7 +483,7 @@ test('D4: plausible prefix/date values are [ID] ~100% with fallback, ~9% strict'
     for (let index = 0; index < samples; index += 1) {
       const base = `110101${1980 + (index % 40)}${String(1 + (index % 12)).padStart(2, '0')}${String(1 + (index % 28)).padStart(2, '0')}${String(index % 1000).padStart(3, '0')}`
       const value = `${base}${Math.floor(rand() * 10)}`
-      if (redactText(value).counts.id === 1) fallbackHits += 1
+      if (redactText(value, { strictIdChecksum: false }).counts.id === 1) fallbackHits += 1
       if (redactText(value, { strictIdChecksum: true }).counts.id === 1) strictHits += 1
     }
   } finally {

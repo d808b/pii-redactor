@@ -1,6 +1,6 @@
 {
   "name": "@local/dsh-pii-redactor",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": true,
   "type": "module",
   "description": "Redacts mainland-China ID card, mobile, and bank card numbers from user messages before they reach the model.",

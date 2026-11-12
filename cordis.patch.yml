@@ -12,7 +12,7 @@
         redactPhone: true
         redactBankCard: true
         allowLegacyId15: false
-        strictIdChecksum: false
+        strictIdChecksum: true
         allowCountryCode: true
         requireLuhn: true
         minBankCardLength: 16

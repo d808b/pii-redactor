@@ -61,14 +61,18 @@ test('redacts an X-suffixed ID in both cases', () => {
   assert.equal(redactText(`A ${VALID_ID_X.toLowerCase()}`).text, 'A [ID]')
 })
 
-test('flags an ID-shaped value whose check character fails, unless strict mode is on', () => {
+test('strict mode (default) keeps a checksum-failing value; the opt-in fallback catches it', () => {
   const digit = /\d/.test(VALID_ID[17]) ? Number(VALID_ID[17]) : 0
   const wrong = `${VALID_ID.slice(0, 17)}${(digit + 1) % 10}`
-  assert.equal(redactText(wrong).text, '[ID]', 'default fallback must catch a mis-copied ID')
   assert.equal(
-    redactText(wrong, { strictIdChecksum: true }).text.includes('[ID]'),
+    redactText(wrong).text.includes('[ID]'),
     false,
-    'strict mode must keep demanding the check character',
+    'default strict mode must keep demanding the check character',
+  )
+  assert.equal(
+    redactText(wrong, { strictIdChecksum: false }).text,
+    '[ID]',
+    'opt-in fallback must catch a mis-copied ID',
   )
 })
 
@@ -205,7 +209,12 @@ test('fallback still rejects impossible months and unknown address prefixes', ()
   for (const base of [badMonth, badPrefix]) {
     for (let digit = 0; digit <= 9; digit += 1) {
       const value = `${base}${digit}`
-      assert.equal(redactText(value).text.includes('[ID]'), false, `must not flag ${value.length}-digit non-ID`)
+      assert.equal(redactText(value).text.includes('[ID]'), false, 'strict mode must not flag a non-ID')
+      assert.equal(
+        redactText(value, { strictIdChecksum: false }).text.includes('[ID]'),
+        false,
+        'fallback must not flag a structurally impossible ID',
+      )
     }
   }
 })
@@ -214,8 +223,8 @@ test('fallback flags an ID-shaped value with a future birth date (documented wid
   // A real card can never carry a future birth date, so this shape is either
   // forced or fabricated; the fallback treats it as an ID anyway.
   const future = '11010120991231447'
-  const flagged = Array.from({ length: 10 }, (_, digit) => redactText(`${future}${digit}`).text)
-  assert.ok(flagged.some((text) => text === '[ID]'), 'at least one future-dated shape must be flagged')
-  const strict = Array.from({ length: 10 }, (_, digit) => redactText(`${future}${digit}`, { strictIdChecksum: true }).text)
-  assert.equal(strict.includes('[ID]'), false, 'strict mode must not flag future dates')
+  const fallback = Array.from({ length: 10 }, (_, digit) => redactText(`${future}${digit}`, { strictIdChecksum: false }).text)
+  assert.ok(fallback.some((text) => text === '[ID]'), 'opt-in fallback flags the future-dated shape')
+  const strict = Array.from({ length: 10 }, (_, digit) => redactText(`${future}${digit}`).text)
+  assert.equal(strict.includes('[ID]'), false, 'default strict mode must not flag future dates')
 })

@@ -6,7 +6,7 @@
 - 包名：`@local/dsh-pii-redactor`　Loader 行 id：`pii-redactor`
 - 形态：Host-only bundle（无运行时依赖、无构建步骤）
 - 挂载点：`agent/pre-step`（waterfall，模型请求组装之前）
-- 当前版本：`0.2.0`（v0.2.0 起身份证默认走“兜底”判定：形状像证件就拦，不强制校验位）
+- 当前版本：`0.2.1`（身份证默认**严格**：校验位必须匹配；兜底是可选开关，默认关）
 
 ---
 
@@ -74,7 +74,7 @@ pii-redactor/
 | 类型 | 匹配 | 硬校验 | 占位符 |
 |---|---|---|---|
 | 身份证 18 位（严格） | 11–19 位数字候选中的 18 位 | 前 2 位省份码白名单 + 出生日期真实存在且不在未来 + **ISO 7064 MOD 11-2 校验位**（末位 `X/x` 允许） | `[ID]` |
-| 身份证 18 位（兜底，**默认**） | 同上 | 省份码白名单 + `YYYYMMDD` 字段范围合法即可，**不看校验位/闰年/未来日期** | `[ID]` |
+| 身份证 18 位（兜底，**可选**，默认关） | 同上 | 省份码白名单 + `YYYYMMDD` 字段范围合法即可，**不看校验位/闰年/未来日期** | `[ID]` |
 | 身份证 15 位（默认关） | 15 位 | 省份码 + `19YYMMDD` 真实日期 | `[ID]` |
 | 手机号 | `1[3-9]` + 9 位；可选 `86` / `0086` / `+86` 前缀 | 号段前缀 | `[PHONE]` |
 | 银行卡 | 16–19 位 | **Luhn（MOD 10）校验** | `[BANK]` |
@@ -103,7 +103,7 @@ pii-redactor/
 | `redactPhone` | `true` | 手机号 |
 | `redactBankCard` | `true` | 银行卡 |
 | `allowLegacyId15` | `false` | 15 位旧证（无校验位，精度较低，默认关） |
-| `strictIdChecksum` | `false` | 身份证是否强制校验位。**默认 false = 兜底**：校验位错的 18 位（抄错一位、改过、OCR 错）也标 `[ID]`；设 true 回到严格模式 |
+| `strictIdChecksum` | `true` | 身份证是否强制校验位。**默认 true = 严格**：只拦校验位正确的证件；设 `false` 才启用兜底（校验位错的 18 位也标 `[ID]`） |
 | `allowCountryCode` | `true` | 允许 `86` / `0086` / `+86` 前缀 |
 | `requireLuhn` | `true` | 银行卡必须过 Luhn；关掉=召回优先（误报上升） |
 | `minBankCardLength` | `16` | 银行卡最短位数 |
@@ -153,7 +153,7 @@ plugin_manager
     redactPhone: true
     redactBankCard: true
     allowLegacyId15: false
-    strictIdChecksum: false
+    strictIdChecksum: true
     allowCountryCode: true
     requireLuhn: true
     minBankCardLength: 16
@@ -223,7 +223,7 @@ dsh --profile web --dump-config | grep -A13 pii-redactor   # 需要 dsh 在 PATH
 
 - **精度优先**：`requireLuhn: true` 会漏掉少数不遵循 Luhn 的卡（历史/特殊 BIN）。若要“宁可错杀”，
   设 `requireLuhn: false`，代价是随机 16–19 位数字约有 1/10 会被替换。
-- **兜底默认开（v0.2.0 起）**：`strictIdChecksum: false` 意味着“形状像证件就拦”，代价是随机 18 位数字约 0.035% 会被误标 `[ID]`；要把误报压到接近 0，设 `strictIdChecksum: true`，但会漏掉被改动/抄错的证件号。
+- **默认严格（v0.2.1 起）**：真实签发的证件校验位必然正确，所以严格模式对真实证件零漏检；被改动、抄错、OCR 错的证件号会放行——这是明确取舍，不是缺陷。若现场更怕漏检，把 `strictIdChecksum` 设成 `false` 启用兜底，代价是随机 18 位数字约 0.035% 误标。
 - **15 位旧证默认关**：没有校验位，误报率高于 18 位；老数据场景请自行打开。
 - **分隔符仅限空格 / 不换行空格 / 连字符**：斜杠、点号等其它分隔写法不匹配（避免把日期、版本号吞掉）。
 - **默认失败策略是 fail-open**：引擎若抛异常，消息按原文放行并打一条黄色告警
